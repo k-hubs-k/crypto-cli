@@ -1,0 +1,5 @@
+encrypted/*
+output/*
+input/*
+__pycache__/
+.venv/
