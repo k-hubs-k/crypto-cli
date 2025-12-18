@@ -1,6 +1,10 @@
+import os
 import pyAesCrypt
 import argparse
 import sys
+from tqdm import tqdm
+
+from ProgressFile import ProgressFile
 
 EXIT_OK = 0
 EXIT_INVALID_ARGS = 2
@@ -9,6 +13,8 @@ EXIT_PERMISSION = 11
 EXIT_INVALID_PASSWORD = 12
 EXIT_UNKNOWN = 1
 EXIT_CANCELLED = 130
+
+BUFFER_SIZE = 64 * 1024
 
 parser = argparse.ArgumentParser(description="Encrypt or decrypt a file using AES")
 
@@ -26,14 +32,41 @@ args = parser.parse_args()
 if len(args.password) < 10:
     parser.error("The password must contain at least 10 characters")
 
+file_size = os.path.getsize(args.input)
+
+
+def encrypt(input_path, output_path, password):
+    with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
+        with tqdm(
+            total=file_size,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            desc="Encrypting",
+        ) as pbar:
+            wrapped_in = ProgressFile(f_in, pbar)
+            pyAesCrypt.encryptStream(wrapped_in, f_out, password, BUFFER_SIZE)
+
+
+def decrypt(input_path, output_path, password):
+    with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
+        with tqdm(
+            total=os.path.getsize(input_path),
+            unit="B",
+            unit_scale=True,
+            desc="Decrypting",
+        ) as pbar:
+
+            wrapped_in = ProgressFile(f_in, pbar)
+            pyAesCrypt.decryptStream(wrapped_in, f_out, password, BUFFER_SIZE)
+
+
 try:
     if args.encrypt:
-        print("Encrypting...")
-        pyAesCrypt.encryptFile(args.input, args.output, args.password)
+        encrypt(args.input, args.output, args.password)
         print("File encrypted successfully.")
     else:
-        print("Decrypting...")
-        pyAesCrypt.decryptFile(args.input, args.output, args.password)
+        decrypt(args.input, args.output, args.password)
         print("File decrypted successfully")
     sys.exit(EXIT_OK)
 
